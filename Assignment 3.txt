@@ -1,106 +1,92 @@
-# !pip install tensorflow matplotlib
+# Install TensorFlow if not already installed
+# !pip install tensorflow --quiet
+
 import tensorflow as tf
-from tensorflow import keras
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Dense, Flatten
+from tensorflow.keras.datasets import cifar10
+from tensorflow.keras.utils import to_categorical
 import matplotlib.pyplot as plt
-import random
 import numpy as np
+import random
 
-cifar10 = tf.keras.datasets.cifar10 # Importing cifar10 dataset
-(x_train, y_train), (x_test, y_test) = cifar10.load_data() # Splitting it into training and testing data
+# Step 1: Load CIFAR-10 dataset
+(x_train, y_train), (x_test, y_test) = cifar10.load_data()
 
-for i in (x_train, y_train, x_test, y_test):
-  print(i.shape)
+print("Training data shape:", x_train.shape)
+print("Test data shape:", x_test.shape)
 
-plt.imshow(x_train[25])
-print(y_train[25])
-plt.show()
+# Step 2: Normalize the pixel values (0–255 → 0–1)
+x_train = x_train.astype('float32') / 255.0
+x_test = x_test.astype('float32') / 255.0
 
-#scaling the values
-x_train = x_train/255
-x_test = x_test/255
-# 0/255 = 255
-#255/255 = 1 maximum value
+# Step 3: Convert labels to one-hot encoding
+y_train = to_categorical(y_train, 10)
+y_test = to_categorical(y_test, 10)
 
-print(x_train.shape, x_test.shape)
+# Step 4: Define class names
+class_names = ['Airplane', 'Automobile', 'Bird', 'Cat', 'Deer',
+               'Dog', 'Frog', 'Horse', 'Ship', 'Truck']
 
-num_classes = 10
-class_names = ['airplane','automobile','bird','cat','deer',
-               'dog','frog','horse','ship','truck']
+# Step 5: Build Feedforward Neural Network (FNN)
+model = Sequential([
+    Flatten(input_shape=(32, 32, 3)),      # Flatten 3D image into 1D vector
+    Dense(512, activation='relu'),         # Hidden layer 1
+    Dense(256, activation='relu'),         # Hidden layer 2
+    Dense(128, activation='relu'),         # Hidden layer 3
+    Dense(10, activation='softmax')        # Output layer (10 classes)
+])
 
-# Convert class vectors to binary class matrices.
-y_train = tf.keras.utils.to_categorical(y_train, num_classes)
-y_test = tf.keras.utils.to_categorical(y_test, num_classes)
+# Step 6: Compile the model
+model.compile(optimizer='adam',
+              loss='categorical_crossentropy',
+              metrics=['accuracy'])
 
-print(y_train.shape, y_test.shape)
+# Step 7: Train the model
+history = model.fit(x_train, y_train, epochs=100, batch_size=128,
+                    validation_split=0.1, verbose=1)
 
+# Step 8: Evaluate model on test data
+test_loss, test_acc = model.evaluate(x_test, y_test, verbose=0)
+print(f"\n✅ Test Accuracy: {test_acc*100:.2f}%")
 
-from tensorflow import keras
-
-# Create a sequential model
-model = keras.Sequential()
-
-# Convolutional layers
-model.add(keras.layers.Conv2D(32, (3, 3), activation='relu', input_shape=(32, 32, 3)))
-model.add(keras.layers.MaxPooling2D((2, 2)))
-model.add(keras.layers.Conv2D(64, (3, 3), activation='relu'))
-model.add(keras.layers.MaxPooling2D((2, 2)))
-model.add(keras.layers.Conv2D(64, (3, 3), activation='relu'))
-
-# Fully connected layers
-model.add(keras.layers.Flatten())
-model.add(keras.layers.Dense(64, activation='relu'))
-model.add(keras.layers.Dense(10, activation='softmax'))  # 10 classes for classification
-
-# Compile the model
-model.compile(optimizer='sgd', loss='categorical_crossentropy', metrics=['accuracy'])
-
-# Print the model summary to check the architecture
-model.summary()
-
-
-# Training the model
-history = model.fit(x_train, y_train,
-              batch_size=30,
-              epochs=10,
-              validation_data=(x_test, y_test),
-              shuffle=True)
-
-import seaborn as sns
-sns.lineplot(model.history.history)
-
-# Plotting the Model Accuracy & Model Loss vs Epochs
-plt.figure(figsize=[10,8])
-
-# summarize history for accuracy
+# Step 9: Plot accuracy and loss
+plt.figure(figsize=(12,5))
 plt.subplot(1,2,1)
-plt.plot(history.history['accuracy'])
-plt.plot(history.history['val_accuracy'])
-plt.title('Model Accuracy', size=25, pad=20)
-plt.ylabel('Accuracy', size=15)
-plt.xlabel('Epoch', size=15)
-plt.legend(['train', 'test'], loc='upper left')
+plt.plot(history.history['accuracy'], label='Train Accuracy')
+plt.plot(history.history['val_accuracy'], label='Validation Accuracy')
+plt.title('Model Accuracy')
+plt.xlabel('Epochs')
+plt.ylabel('Accuracy')
+plt.legend()
 
-
-# summarize history for loss
 plt.subplot(1,2,2)
-plt.plot(history.history['loss'])
-plt.plot(history.history['val_loss'])
-plt.title('Model Loss', size=25, pad=20)
-plt.ylabel('Loss', size=15)
-plt.xlabel('Epoch', size=15)
-plt.legend(['train', 'test'], loc='upper left')
+plt.plot(history.history['loss'], label='Train Loss')
+plt.plot(history.history['val_loss'], label='Validation Loss')
+plt.title('Model Loss')
+plt.xlabel('Epochs')
+plt.ylabel('Loss')
+plt.legend()
 plt.show()
 
+# Step 10: Make predictions
 predictions = model.predict(x_test)
 
-class_names = ['airplane','automobile','bird','cat','deer','dog','frog','horse','ship','truck']
+# Step 11: Display predictions for 10 random test images
+random_indices = random.sample(range(len(x_test)), 2)
+for idx in random_indices:
+    plt.imshow(x_test[idx])
+    plt.title(f"Predicted: {class_names[np.argmax(predictions[idx])]}")
+    plt.axis('off')
+    plt.show()
 
-plt.figure(figsize=[10,10])
-plt.imshow(x_test[0].reshape(32, 32, -1))
-plt.title("Predicted value: " + str(class_names[np.argmax(predictions[0], axis=0)]), size=20)
-plt.grid(False)
+# Step 10: Make predictions
+predictions = model.predict(x_test)
 
-plt.figure(figsize=[10,10])
-plt.imshow(x_test[100].reshape(32, 32, -1))
-plt.title("Predicted value: " + str(class_names[np.argmax(predictions[100], axis=0)]), size=20)
-plt.grid(False)
+# Step 11: Display predictions for 10 random test images
+random_indices = random.sample(range(len(x_test)), 2)
+for idx in random_indices:
+    plt.imshow(x_test[idx])
+    plt.title(f"Predicted: {class_names[np.argmax(predictions[idx])]}")
+    plt.axis('off')
+    plt.show()

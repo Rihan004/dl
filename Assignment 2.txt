@@ -1,94 +1,87 @@
-import zipfile
-zip_path = "/content/MNIST-20221031T095906Z-001.zip"
+# Install TensorFlow if needed
+# !pip install tensorflow --quiet
 
-# Extract to a folder
-with zipfile.ZipFile(zip_path, 'r') as zip_ref:
-    zip_ref.extractall("/content/MNIST")
-
-import pandas as pd
-import numpy as np
-import matplotlib.pyplot as plt
+import tensorflow as tf
 from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import Dense,Flatten
+from tensorflow.keras.layers import Dense, Flatten
+from tensorflow.keras.datasets import mnist
 from tensorflow.keras.utils import to_categorical
-from sklearn.model_selection import train_test_split
+import matplotlib.pyplot as plt
+import numpy as np
 
-data = pd.read_csv("/content/MNIST/MNIST/mnist_784_csv.csv")
-data.head()
+# Step 1: Load MNIST dataset
+(x_train, y_train), (x_test, y_test) = mnist.load_data()
 
-X = data.drop(columns=['class']).values
-Y = data['class'].values
+print("Training data shape:", x_train.shape)
+print("Test data shape:", x_test.shape)
 
-X.shape
+# Step 2: Normalize data (0–255 → 0–1)
+x_train = x_train / 255.0
+x_test = x_test / 255.0
 
-Y.shape
+# Step 3: Convert labels to one-hot encoding
+y_train = to_categorical(y_train, 10)
+y_test = to_categorical(y_test, 10)
 
-Y = to_categorical(Y,num_classes=10)
+# Step 4: Build Feedforward Neural Network
+model = Sequential([
+    Flatten(input_shape=(28, 28)),        # Input layer (flatten image)
+    Dense(128, activation='relu'),        # Hidden layer 1
+    Dense(64, activation='relu'),         # Hidden layer 2
+    Dense(10, activation='softmax')       # Output layer (10 digits)
+])
 
-x_train , x_test , y_train , y_test = train_test_split(X,Y,test_size=0.2)
+# Step 5: Compile the model
+model.compile(optimizer='adam',
+              loss='categorical_crossentropy',
+              metrics=['accuracy'])
 
-print(x_train.shape)
-print(y_train.shape)
-print(x_test.shape)
-print(y_test.shape)
+# Step 6: Train the model
+history = model.fit(x_train, y_train, epochs=10, batch_size=128,
+                    validation_split=0.1, verbose=1)
 
-sample_image = x_train[5].reshape(28, 28)
+# Step 7: Evaluate the model
+test_loss, test_acc = model.evaluate(x_test, y_test, verbose=0)
+print(f"\n✅ Test Accuracy: {test_acc*100:.2f}%")
 
-# if y_test.ndim > 1:  # Check if y_test is one-hot encoded
-digit_label = np.argmax(y_train[5])  # Get the index of the maximum value
-# else:
-    # digit_label = y_test[0]  # If already a single integer label
-
-# Display the image
-plt.matshow(sample_image, cmap='gray')
-plt.title(f"Label: {digit_label}")  # Show the digit label
-plt.axis('off')
-plt.show()
-
-
-plt.figure(figsize=(15, 2))  # Single figure, wide for a row
-
-for i in range(10):
-    sample_image = x_train[i].reshape(28, 28)
-    digit_label = np.argmax(y_train[i])
-    plt.subplot(1, 10, i + 1)  # 1 row, 10 columns
-    plt.matshow(sample_image, cmap='gray', fignum=0)  # fignum=0 avoids creating new figures
-    plt.title(f"Label: {digit_label}")
-    plt.axis('off')
-
-plt.show()
-
-
-model = Sequential([Flatten(input_shape=(784,)),
-                    Dense(128,activation='relu'),
-                    Dense(64,activation='relu'),
-                    Dense(10,activation='softmax')
-                   ])
-
-model.compile(optimizer='adam',loss='categorical_crossentropy',metrics=['accuracy'])
-
-history = model.fit(x_train,y_train,epochs=5,batch_size=32,validation_split=0.2)
-
-test_loss , test_acc = model.evaluate(x_test,y_test)
-
-print(test_loss)
-print(test_acc)
-
-plt.plot(history.history['accuracy'],label='Training Accuracy')
-plt.plot(history.history['val_accuracy'],label='Validation Accuracy')
+# Step 8: Plot accuracy and loss curves
+plt.figure(figsize=(12,5))
+plt.subplot(1,2,1)
+plt.plot(history.history['accuracy'], label='Train Accuracy')
+plt.plot(history.history['val_accuracy'], label='Validation Accuracy')
+plt.title('Model Accuracy')
 plt.xlabel('Epoch')
 plt.ylabel('Accuracy')
 plt.legend()
+
+plt.subplot(1,2,2)
+plt.plot(history.history['loss'], label='Train Loss')
+plt.plot(history.history['val_loss'], label='Validation Loss')
+plt.title('Model Loss')
+plt.xlabel('Epoch')
+plt.ylabel('Loss')
+plt.legend()
 plt.show()
 
-plt.figure(figsize=(15, 2))  # Smaller, wide figure for a row
+# Step 9: Make Predictions on Test Data
+predictions = model.predict(x_test)
 
-for i in range(10):
-    plt.subplot(1, 10, i + 1)  # 1 row, 10 columns
-    sample_image = x_train[i].reshape(28, 28)
-    digit_label = np.argmax(y_train[i])
-    plt.imshow(sample_image, cmap='gray')
-    plt.title(digit_label)
-    plt.axis('off')
 
+import random
+idx = random.randint(0, len(x_test) - 1)  # pick random index
+plt.imshow(x_test[idx], cmap='gray')
+plt.title(f"Predicted: {np.argmax(predictions[idx])}")
+plt.axis('off')
+plt.show()
+
+idx = random.randint(0, len(x_test) - 1)  # pick random index
+plt.imshow(x_test[idx], cmap='gray')
+plt.title(f"Predicted: {np.argmax(predictions[idx])}")
+plt.axis('off')
+plt.show()
+
+idx = random.randint(0, len(x_test) - 1)  # pick random index
+plt.imshow(x_test[idx], cmap='gray')
+plt.title(f"Predicted: {np.argmax(predictions[idx])}")
+plt.axis('off')
 plt.show()
