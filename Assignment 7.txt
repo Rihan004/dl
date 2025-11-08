@@ -1,0 +1,129 @@
+import zipfile
+zip_path = "/home/student/Downloads/brain tumour.zip"
+
+# Extract to a folder
+with zipfile.ZipFile(zip_path, 'r') as zip_ref:
+    zip_ref.extractall("/home/student/Downloads/brain_tumour")
+
+import tensorflow as tf
+from tensorflow.keras.preprocessing.image import ImageDataGenerator
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Conv2D, MaxPooling2D, Flatten, Dense
+
+# Define your dataset path
+train_dataset_path = '/home/student/Downloads/brain_tumour/Training'
+test_dataset_path = '/home/student/Downloads/brain_tumour/Testing'
+
+# Define parameters
+input_shape = (224, 224, 3)  # adjust based on your dataset
+batch_size = 32
+epochs = 10
+
+
+# Create data generators
+train_datagen = ImageDataGenerator(
+    rescale=1./255,
+)
+
+train_generator = train_datagen.flow_from_directory(
+    train_dataset_path,
+    target_size=(input_shape[0], input_shape[1]),
+    batch_size=batch_size,
+    class_mode='categorical',  # adjust for binary or multi-class classification
+    subset=None
+)
+
+test_generator = train_datagen.flow_from_directory(
+    test_dataset_path,
+    target_size=(input_shape[0], input_shape[1]),
+    batch_size=batch_size,
+    class_mode='categorical',
+    subset=None
+)
+
+from tensorflow.keras.layers import Dense, Flatten, MaxPooling2D, Dropout
+from tensorflow.keras.models import Sequential
+
+model = Sequential()
+model.add(Conv2D(64, kernel_size=3, input_shape=(224,224,3), activation = 'relu'))
+model.add(MaxPooling2D(2,2))
+model.add(Conv2D(32, kernel_size=3, activation = 'relu'))
+model.add(MaxPooling2D(2,2))
+model.add(Conv2D(16, kernel_size=3, activation = 'relu'))
+model.add(MaxPooling2D(2,2))
+model.add(Flatten())
+model.add(Dense(128, activation = 'relu'))
+model.add(Dense(256, activation = 'relu'))
+model.add(Dense(384, activation = 'relu'))
+model.add(Dense(256, activation = 'relu'))
+model.add(Dense(4, activation = 'softmax'))
+
+model.compile(optimizer = 'adam', loss='categorical_crossentropy', metrics=['accuracy'])
+
+H = model.fit(train_generator, epochs=4, validation_data=test_generator)
+
+import os
+
+labels = os.listdir('/home/student/Downloads/brain_tumour/Training')
+labels
+
+from tensorflow.keras.preprocessing import image
+import random
+
+def get_random_paths(path):
+    imgs = []
+    for root, dir, files in os.walk(path):
+        for file in files:
+            if file.endswith('.jpg'):
+                imgs.append(os.path.join(root,file))
+    random_image_path = random.choice(imgs)
+    return random_image_path
+
+x_test_path = get_random_paths('/home/student/Downloads/brain_tumour/Testing')
+
+
+import numpy as np
+
+img = image.load_img(x_test_path, target_size = (input_shape[0],input_shape[1]))
+img_array = image.img_to_array(img)
+img_array = np.expand_dims(img_array,0)
+
+img_array.ndim
+
+import matplotlib.pyplot as plt
+import numpy as np
+import os
+from tensorflow.keras.preprocessing import image
+
+plt.figure(figsize=(15, 5))
+
+for i, class_name in enumerate(labels):
+    class_path = os.path.join(test_dataset_path, class_name)
+    imgs = [f for f in os.listdir(class_path) if f.endswith('.jpg')]
+    if not imgs:
+        continue
+
+    img_file = np.random.choice(imgs)
+    img_path = os.path.join(class_path, img_file)
+
+    img = image.load_img(img_path, target_size=(input_shape[0], input_shape[1]))
+    img_array = image.img_to_array(img) / 255.0
+    img_array = np.expand_dims(img_array, axis=0)
+
+    predicted_values = model.predict(img_array)
+    predicted_index = np.argmax(predicted_values)
+    predicted_class = labels[predicted_index]
+
+    plt.subplot(1, len(labels), i+1)
+    plt.imshow(img)
+    plt.title(predicted_class)
+    plt.axis('off')
+
+plt.show()
+
+
+plt.plot(H.history['loss'], label = 'loss')
+plt.plot(H.history['accuracy'], label = 'accuracy')
+plt.legend()
+
+model.evaluate(test_generator)

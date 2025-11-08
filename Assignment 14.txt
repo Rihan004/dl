@@ -1,0 +1,119 @@
+import numpy as np
+import re
+from tensorflow.keras.preprocessing.text import Tokenizer
+import tensorflow as tf
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Dense, Embedding, Lambda
+
+data = """The Skip-Gram model is another approach used in natural language processing to create word embeddings. Unlike the Continuous Bag of Words, Skip-Gram predicts surrounding words given a target word, allowing it to capture more contextual relationships. These embeddings can then be applied to various NLP tasks such as sentiment analysis, machine translation, and information retrieval."""
+
+data
+
+sentences = data.split('.')
+
+sentences
+
+clean_sent=[]
+for sentence in sentences:
+    if sentence=="":
+        continue
+    sentence = re.sub('[^A-Za-z0-9]+', ' ', (sentence))
+    sentence = re.sub(r'(?:^| )\w (?:$| )', ' ', (sentence)).strip()
+    sentence = sentence.lower()
+    clean_sent.append(sentence)
+
+clean_sent
+
+tokenizer = Tokenizer()
+tokenizer.fit_on_texts(clean_sent)
+sequences = tokenizer.texts_to_sequences(clean_sent)
+print(sequences)
+
+index_to_word = {}
+word_to_index = {}
+
+for i, sequence in enumerate(sequences):
+#     print(sequence)
+    word_in_sentence = clean_sent[i].split()
+    #     print(word_in_sentence)
+
+    for j, value in enumerate(sequence):
+        index_to_word[value] = word_in_sentence[j]
+        word_to_index[word_in_sentence[j]] = value
+
+ print(index_to_word, "\n")
+ print(word_to_index)
+
+ vocab_size = len(tokenizer.word_index) + 1
+ emb_size = 10
+ context_size = 2
+
+contexts = []
+targets = []
+for sequence in sequences:
+    for i in range(context_size, len(sequence) - context_size):
+        target = sequence[i]
+        context = [sequence[i - 2], sequence[i - 1], sequence[i + 1], sequence[i + 2]]
+         #         print(context)
+        contexts.append(context)
+        targets.append(target)
+
+ print(contexts, "\n")
+ print(targets)
+
+#printing features with target
+for i in range(5):
+    words = []
+    target = index_to_word.get(targets[i])
+    for j in contexts[i]:
+        words.append(index_to_word.get(j))
+    print(words," -> ", target)
+
+X = np.array(contexts)
+Y = np.array(targets)
+
+model = Sequential([
+    Embedding(input_dim=vocab_size, output_dim=emb_size, input_length=2*context_size),
+    Lambda(lambda x: tf.reduce_mean(x, axis=1)),
+    Dense(256, activation='relu'),
+    Dense(512, activation='relu'),
+    Dense(vocab_size, activation='softmax')
+ ])
+
+model.compile(loss='sparse_categorical_crossentropy',
+optimizer='adam', metrics=['accuracy'])
+history = model.fit(X, Y, epochs=80)
+
+ import seaborn as sns
+ sns.lineplot(model.history.history)
+
+from sklearn.decomposition import PCA
+embeddings = model.get_weights()[0]
+pca = PCA(n_components=2)
+reduced_embeddings = pca.fit_transform(embeddings)
+
+test_sentences = [
+    "continuous bag of words model",
+    "natural language processing technique",
+    "technique to generate word embeddings",
+    "skip gram model predicts surrounding words",
+    "capture contextual relationships between words",
+]
+
+
+for sent in test_sentences:
+    test_words = sent.split(" ")
+
+    x_test = []
+    for w in test_words:
+        # Use 0 (or your PAD/UNK token) if the word is not in vocabulary
+        x_test.append(word_to_index.get(w, 0))
+
+    x_test = np.array([x_test], dtype=np.int32)
+
+    pred = model.predict(x_test)
+    pred = np.argmax(pred[0])
+
+    print("Input:", test_words)
+    print("Predicted word:", index_to_word.get(pred, "<UNK>"))
+    print()
