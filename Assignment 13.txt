@@ -1,51 +1,40 @@
-# ✅ Install dependencies if needed
-# !pip install tensorflow pandas matplotlib --quiet
+# 🚀 Dog Breed Classification (Final Version with Checkpointing & EarlyStopping)
 
-# -------------------------------
-# STEP 1: IMPORT LIBRARIES
-# -------------------------------
 import tensorflow as tf
 from tensorflow.keras.preprocessing.image import ImageDataGenerator
-from tensorflow.keras.applications import VGG16
+from tensorflow.keras.applications import MobileNetV2
 from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import Dense, Flatten, Dropout
+from tensorflow.keras.layers import Dense, Dropout, GlobalAveragePooling2D
+from tensorflow.keras.optimizers import Adam
+from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint
 import matplotlib.pyplot as plt
 import pandas as pd
 import numpy as np
 import os
-import random
 
-# -------------------------------
-# STEP 2: DEFINE DATA PATHS
-# -------------------------------
+# ---------------------------
+# 📁 Dataset Paths
+# ---------------------------
 base_dir = r"C:\Users\HP\Downloads\datasets_dog_breed_classification"
 train_dir = os.path.join(base_dir, "train")
 test_dir = os.path.join(base_dir, "test")
 labels_path = os.path.join(base_dir, "labels.csv")
 
-# -------------------------------
-# STEP 3: LOAD AND FIX LABELS
-# -------------------------------
+# ---------------------------
+# 🧩 Load Labels
+# ---------------------------
 df = pd.read_csv(labels_path)
 print("Before fixing:")
 print(df.head())
 
-# Add '.jpg' to filenames if missing
 df['id'] = df['id'].apply(lambda x: x + ".jpg")
 
 print("\nAfter fixing filenames:")
 print(df.head())
 
-# -------------------------------
-# STEP 4: VERIFY FILE EXISTENCE
-# -------------------------------
-sample_path = os.path.join(train_dir, df['id'].iloc[0])
-print("\nSample path check:", sample_path)
-print("Exists?", os.path.exists(sample_path))
-
-# -------------------------------
-# STEP 5: IMAGE DATA GENERATORS
-# -------------------------------
+# ---------------------------
+# 🧠 Data Preprocessing & Augmentation
+# ---------------------------
 train_datagen = ImageDataGenerator(
     rescale=1./255,
     validation_split=0.2,
@@ -80,54 +69,71 @@ val_generator = train_datagen.flow_from_dataframe(
 )
 
 print(f"\n✅ Found {train_generator.samples} training and {val_generator.samples} validation images.")
+num_classes = len(train_generator.class_indices)
+print(f"Number of breeds: {num_classes}")
 
-# -------------------------------
-# STEP 6: LOAD PRETRAINED MODEL (VGG16)
-# -------------------------------
-base_model = VGG16(weights='imagenet', include_top=False, input_shape=(224,224,3))
+# ---------------------------
+# ⚙️ Base Model (MobileNetV2)
+# ---------------------------
+base_model = MobileNetV2(weights='imagenet', include_top=False, input_shape=(224,224,3))
+base_model.trainable = True  # Enable fine-tuning
 
-# Freeze convolutional base
-for layer in base_model.layers:
+# Unfreeze last 30 layers for task-specific tuning
+for layer in base_model.layers[:-30]:
     layer.trainable = False
 
-# -------------------------------
-# STEP 7: BUILD THE MODEL
-# -------------------------------
+# ---------------------------
+# 🧩 Model Architecture
+# ---------------------------
 model = Sequential([
     base_model,
-    Flatten(),
+    GlobalAveragePooling2D(),
     Dense(256, activation='relu'),
     Dropout(0.5),
-    Dense(len(train_generator.class_indices), activation='softmax')  # number of breeds
+    Dense(num_classes, activation='softmax')
 ])
 
-# -------------------------------
-# STEP 8: COMPILE MODEL
-# -------------------------------
+# ---------------------------
+# 🧮 Compile Model
+# ---------------------------
 model.compile(
-    optimizer='adam',
+    optimizer=Adam(learning_rate=1e-4),
     loss='categorical_crossentropy',
     metrics=['accuracy']
 )
 
-# -------------------------------
-# STEP 9: TRAIN THE MODEL
-# -------------------------------
+# ---------------------------
+# 🛑 Callbacks (EarlyStopping & Checkpoint)
+# ---------------------------
+checkpoint_path = "best_dog_breed_model.keras"
+
+callbacks = [
+    EarlyStopping(monitor='val_loss', patience=3, restore_best_weights=True, verbose=1),
+    ModelCheckpoint(filepath=checkpoint_path,
+                    monitor='val_accuracy',
+                    save_best_only=True,
+                    verbose=1)
+]
+
+# ---------------------------
+# 🏋️ Train Model
+# ---------------------------
 history = model.fit(
     train_generator,
-    epochs=10,
-    validation_data=val_generator
+    epochs=20,
+    validation_data=val_generator,
+    callbacks=callbacks
 )
 
-# -------------------------------
-# STEP 10: EVALUATE MODEL
-# -------------------------------
+# ---------------------------
+# 🧪 Evaluate Model
+# ---------------------------
 val_loss, val_acc = model.evaluate(val_generator)
-print(f"\n✅ Validation Accuracy: {val_acc*100:.2f}%")
+print(f"\n✅ Best Validation Accuracy: {val_acc*100:.2f}%")
 
-# -------------------------------
-# STEP 11: PLOT TRAINING HISTORY
-# -------------------------------
+# ---------------------------
+# 📊 Plot Accuracy & Loss
+# ---------------------------
 plt.figure(figsize=(12,5))
 
 plt.subplot(1,2,1)
@@ -148,22 +154,36 @@ plt.legend()
 
 plt.show()
 
+# ---------------------------
+# 💾 Load Best Model (Optional)
+# ---------------------------
+best_model = tf.keras.models.load_model(checkpoint_path)
+print("✅ Loaded best saved model for inference.")
 
-# -------------------------------
-# STEP 12: RANDOM PREDICTIONS
-# -------------------------------
+
+import random
 labels = list(train_generator.class_indices.keys())
-test_images = os.listdir(test_dir)
 
+# Get test image file names
+test_images = [img for img in os.listdir(test_dir) if img.lower().endswith(('.jpg', '.jpeg', '.png'))]
+
+# Predict on 3 random test images
 for i in range(3):
     random_img = random.choice(test_images)
     img_path = os.path.join(test_dir, random_img)
-    img = tf.keras.utils.load_img(img_path, target_size=(224,224))
-    plt.imshow(img)
-    plt.axis('off')
-c
+
+    # Load and preprocess image
+    img = tf.keras.utils.load_img(img_path, target_size=(224, 224))
     img_array = tf.keras.utils.img_to_array(img) / 255.0
     img_array = np.expand_dims(img_array, axis=0)
-    prediction = model.predict(img_array)
-    plt.title(f"Predicted: {labels[np.argmax(prediction)]}")
+
+    # Predict
+    prediction = model.predict(img_array, verbose=0)
+    predicted_label = labels[np.argmax(prediction)]
+
+    # Display result
+    plt.figure(figsize=(4, 4))
+    plt.imshow(img)
+    plt.axis('off')
+    plt.title(f"Predicted: {predicted_label}")
     plt.show()
