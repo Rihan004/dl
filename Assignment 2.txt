@@ -83,12 +83,16 @@ plt.show()
 
 plt.figure(figsize=(15, 2))  # Smaller, wide figure for a row
 
-for i in range(10):
-    plt.subplot(1, 10, i + 1)  # 1 row, 10 columns
-    sample_image = x_train[i].reshape(28, 28)
-    digit_label = np.argmax(y_train[i])
-    plt.imshow(sample_image, cmap='gray')
-    plt.title(digit_label)
-    plt.axis('off')
+#some sample print
+plt.figure(figsize=(10 , 2))
+# Predict on the entire test set
+predictions = model.predict(x_test)
 
+for i in range(10):
+  plt.subplot(1 , 10 , i+1)
+  plt.imshow(x_test[i].reshape(28, 28) , cmap = 'gray')
+  # Get the predicted class for the current image
+  pred = np.argmax(predictions[i])
+  plt.title(pred)
+  plt.axis('off')
 plt.show()
